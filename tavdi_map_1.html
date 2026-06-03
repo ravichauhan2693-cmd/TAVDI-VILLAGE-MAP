@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>તાવડી ગ્રામ પંચાયત — નવસારી</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Sanskrit&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --panel: rgba(10,10,14,0.92);
+    --accent: #ff3c1f;
+    --accent2: #ff8c00;
+    --gold: #d4a843;
+    --text: #e8e0d0;
+    --dim: #7a7068;
+    --border: rgba(212,168,67,0.25);
+    --glow: 0 0 18px rgba(255,60,31,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position: relative;
+    z-index: 1000;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    backdrop-filter: blur(12px);
+  }
+
+  .title-block {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .title-gu {
+    font-family: 'Tiro Devanagari Sanskrit', serif;
+    font-size: 15px;
+    color: var(--gold);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .title-en {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* Scan line animation on title */
+  .title-gu::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.4;
+    animation: scan 4s linear infinite;
+  }
+
+  @keyframes scan {
+    0% { top: 0; }
+    100% { top: 100%; }
+  }
+
+  /* ── GPS BUTTON ── */
+  #gps-btn {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  #gps-btn:hover {
+    background: var(--accent);
+    color: #000;
+    box-shadow: var(--glow);
+  }
+
+  #gps-btn.active {
+    background: var(--accent);
+    color: #000;
+    box-shadow: var(--glow);
+    animation: pulse-btn 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-btn {
+    0%, 100% { box-shadow: var(--glow); }
+    50% { box-shadow: 0 0 28px rgba(255,60,31,0.8); }
+  }
+
+  .gps-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* ── MAP CONTAINER ── */
+  #map {
+    flex: 1;
+    width: 100%;
+    background: #05050a;
+  }
+
+  /* ── CONTROLS PANEL ── */
+  #controls {
+    position: absolute;
+    top: 70px;
+    right: 12px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ctrl-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    width: 38px;
+    height: 38px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    backdrop-filter: blur(8px);
+  }
+
+  .ctrl-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(212,168,67,0.1);
+  }
+
+  /* ── OPACITY SLIDER ── */
+  #opacity-panel {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+
+  #opacity-panel label { color: var(--gold); text-transform: uppercase; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 120px;
+    height: 3px;
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) 70%, #333 70%);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* ── STATUS BAR ── */
+  #statusbar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 5px 14px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(8px);
+    flex-shrink: 0;
+  }
+
+  #coord-display { color: var(--gold); font-size: 9px; }
+  #zoom-display { color: var(--accent2); }
+
+  /* ── GPS LOCATION MARKER ── */
+  .my-location-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-left: -10px !important;
+    margin-top: -10px !important;
+  }
+
+  /* ── ACCURACY CIRCLE CUSTOM ── */
+  .accuracy-circle {
+    border: 2px solid var(--accent) !important;
+    background: rgba(255,60,31,0.08) !important;
+  }
+
+  /* ── LAYER TOGGLE ── */
+  #layer-toggle {
+    position: absolute;
+    top: 70px;
+    left: 12px;
+    z-index: 999;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    backdrop-filter: blur(8px);
+    min-width: 160px;
+  }
+
+  .layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+    color: var(--text);
+    transition: color 0.15s;
+  }
+
+  .layer-item:hover { color: var(--gold); }
+
+  .layer-check {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .layer-check.on {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #000;
+  }
+
+  .layer-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── GPS STATUS MSG ── */
+  #gps-status {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    padding: 6px 14px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--accent);
+    pointer-events: none;
+    display: none;
+    white-space: nowrap;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  /* Leaflet overrides */
+  .leaflet-control-zoom {
+    display: none; /* we have custom zoom */
+  }
+
+  .leaflet-bottom.leaflet-right {
+    bottom: 30px;
+  }
+
+  .leaflet-control-attribution {
+    font-size: 8px;
+    background: rgba(0,0,0,0.5) !important;
+    color: #555 !important;
+  }
+
+  .leaflet-control-attribution a { color: #666 !important; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="title-block">
+    <div class="title-gu">તાવડી ગ્રામ પંચાયત · જલાલપોર · નવસારી</div>
+    <div class="title-en">TAVDI — JALALPORE — NAVSARI &nbsp;|&nbsp; 2017-18 &nbsp;|&nbsp; HISTORICAL MAP</div>
+  </div>
+  <button id="gps-btn" onclick="toggleGPS()">
+    <span class="gps-dot"></span>
+    <span id="gps-label">LOCATE</span>
+  </button>
+</div>
+
+<div id="map"></div>
+
+<!-- Layer toggle panel -->
+<div id="layer-toggle">
+  <div class="layer-item" onclick="toggleLayer('historical')">
+    <div class="layer-check on" id="chk-historical">✓</div>
+    <div class="layer-label">Historical Map</div>
+  </div>
+  <div class="layer-item" onclick="toggleLayer('satellite')">
+    <div class="layer-check" id="chk-satellite"></div>
+    <div class="layer-label">Satellite Base</div>
+  </div>
+  <div class="layer-item" onclick="toggleLayer('osm')">
+    <div class="layer-check on" id="chk-osm">✓</div>
+    <div class="layer-label">OSM Roads</div>
+  </div>
+</div>
+
+<!-- Custom zoom controls -->
+<div id="controls">
+  <button class="ctrl-btn" onclick="map.zoomIn()" title="Zoom In">+</button>
+  <button class="ctrl-btn" onclick="map.zoomOut()" title="Zoom Out">−</button>
+  <button class="ctrl-btn" onclick="resetView()" title="Reset View" style="font-size:14px;">⌂</button>
+</div>
+
+<!-- Opacity slider -->
+<div id="opacity-panel">
+  <label>MAP</label>
+  <input type="range" id="opacity-slider" min="0" max="100" value="85" oninput="updateOpacity(this.value)">
+  <span id="opacity-val">85%</span>
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <span id="coord-display">LAT — &nbsp; LON —</span>
+  <span>TAVDI GRAM PANCHAYAT</span>
+  <span id="zoom-display">ZOOM: —</span>
+</div>
+
+<!-- GPS status popup -->
+<div id="gps-status"></div>
+
+<!-- Leaflet JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+// ── BOUNDS ──
+const bounds = [[20.9449431, 72.8686586], [20.989534, 72.9322687]];
+const center = [20.9672, 72.9005];
+
+// ── MAP INIT ──
+const map = L.map('map', {
+  center: center,
+  zoom: 14,
+  maxZoom: 21,          // Max possible zoom
+  minZoom: 12,
+  zoomControl: false,
+  attributionControl: true,
+  tap: true,
+  tapTolerance: 15,
+});
+
+// ── BASE LAYERS ──
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
+  maxZoom: 21,
+  maxNativeZoom: 19,
+  opacity: 0.35,
+});
+
+const satelliteLayer = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {
+    attribution: '© Esri',
+    maxZoom: 21,
+    maxNativeZoom: 19,
+    opacity: 0.6,
+  }
+);
+
+// Dark base (always on)
+const darkBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '© CartoDB',
+  maxZoom: 21,
+  maxNativeZoom: 19,
+  subdomains: 'abcd',
+});
+
+// ── MAPWARPER HISTORICAL LAYER (TMS) ──
+// MapWarper provides TMS tiles at /maps/tile/{z}/{x}/{y}.png
+const historicalLayer = L.tileLayer(
+  'https://mapwarper.net/maps/tile/107435/{z}/{x}/{y}.png',
+  {
+    attribution: '© MapWarper · Tavdi 2017-18',
+    maxZoom: 21,
+    maxNativeZoom: 20,
+    tms: false,       // MapWarper uses XYZ (not TMS)
+    opacity: 0.85,
+    bounds: L.latLngBounds(bounds),
+    crossOrigin: true,
+    errorTileUrl: '',
+  }
+);
+
+// Add layers in order
+darkBase.addTo(map);
+osmLayer.addTo(map);
+historicalLayer.addTo(map);
+
+// ── LAYER STATE ──
+const layerState = {
+  historical: true,
+  satellite: false,
+  osm: true,
+};
+
+function toggleLayer(name) {
+  layerState[name] = !layerState[name];
+  const chk = document.getElementById('chk-' + name);
+
+  if (name === 'historical') {
+    if (layerState.historical) { historicalLayer.addTo(map); chk.textContent = '✓'; chk.classList.add('on'); }
+    else { map.removeLayer(historicalLayer); chk.textContent = ''; chk.classList.remove('on'); }
+  }
+  if (name === 'satellite') {
+    if (layerState.satellite) { map.addLayer(satelliteLayer); satelliteLayer.setZIndex(1); darkBase.setZIndex(0); chk.textContent = '✓'; chk.classList.add('on'); }
+    else { map.removeLayer(satelliteLayer); chk.textContent = ''; chk.classList.remove('on'); }
+  }
+  if (name === 'osm') {
+    if (layerState.osm) { osmLayer.addTo(map); chk.textContent = '✓'; chk.classList.add('on'); }
+    else { map.removeLayer(osmLayer); chk.textContent = ''; chk.classList.remove('on'); }
+  }
+}
+
+// ── OPACITY CONTROL ──
+function updateOpacity(val) {
+  historicalLayer.setOpacity(val / 100);
+  document.getElementById('opacity-val').textContent = val + '%';
+  // Update slider gradient
+  const slider = document.getElementById('opacity-slider');
+  slider.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${val}%, #333 ${val}%)`;
+}
+
+// ── STATUS BAR ──
+map.on('mousemove', (e) => {
+  document.getElementById('coord-display').textContent =
+    `LAT ${e.latlng.lat.toFixed(6)}  LON ${e.latlng.lng.toFixed(6)}`;
+});
+
+map.on('zoomend', () => {
+  document.getElementById('zoom-display').textContent = 'ZOOM: ' + map.getZoom();
+});
+
+// Init zoom display
+document.getElementById('zoom-display').textContent = 'ZOOM: ' + map.getZoom();
+
+// ── RESET VIEW ──
+function resetView() {
+  map.flyToBounds(bounds, { padding: [20, 20], maxZoom: 16, duration: 0.8 });
+}
+
+// ── GPS — FAST & ACCURATE ──
+let gpsActive = false;
+let watchId = null;
+let locationMarker = null;
+let accuracyCircle = null;
+let gpsStatusTimer = null;
+
+const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="8" fill="rgba(255,60,31,0.15)" stroke="#ff3c1f" stroke-width="1.5"/>
+  <circle cx="12" cy="12" r="4" fill="#ff3c1f"/>
+  <line x1="12" y1="2" x2="12" y2="7" stroke="#ff3c1f" stroke-width="1.5"/>
+  <line x1="12" y1="17" x2="12" y2="22" stroke="#ff3c1f" stroke-width="1.5"/>
+  <line x1="2" y1="12" x2="7" y2="12" stroke="#ff3c1f" stroke-width="1.5"/>
+  <line x1="17" y1="12" x2="22" y2="12" stroke="#ff3c1f" stroke-width="1.5"/>
+</svg>`;
+
+const myIcon = L.divIcon({
+  html: `<div style="
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    animation: gpspin 2s linear infinite;
+  ">${svgIcon}</div>
+  <style>
+    @keyframes gpspin {
+      0%,100%{transform:scale(1);}
+      50%{transform:scale(1.25);}
+    }
+  </style>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  className: '',
+});
+
+function showGpsStatus(msg, duration = 3000) {
+  const el = document.getElementById('gps-status');
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (gpsStatusTimer) clearTimeout(gpsStatusTimer);
+  gpsStatusTimer = setTimeout(() => el.style.display = 'none', duration);
+}
+
+function toggleGPS() {
+  if (!gpsActive) {
+    startGPS();
+  } else {
+    stopGPS();
+  }
+}
+
+function startGPS() {
+  if (!navigator.geolocation) {
+    showGpsStatus('⚠ GPS SUPPORTED NAHI HAI', 4000);
+    return;
+  }
+
+  gpsActive = true;
+  document.getElementById('gps-btn').classList.add('active');
+  document.getElementById('gps-label').textContent = 'ON';
+  showGpsStatus('⟳ LOCATION DETECT HO RAHI HAI...', 10000);
+
+  // HIGH ACCURACY + fast timeout settings
+  const options = {
+    enableHighAccuracy: true,
+    timeout: 8000,           // 8 sec max wait
+    maximumAge: 2000,        // 2 sec cache - faster updates
+  };
+
+  // First: quick coarse fix
+  navigator.geolocation.getCurrentPosition(onGPSSuccess, onGPSError, {
+    enableHighAccuracy: false,
+    timeout: 3000,
+    maximumAge: 10000,
+  });
+
+  // Then: continuous high-accuracy watch
+  watchId = navigator.geolocation.watchPosition(onGPSSuccess, onGPSError, options);
+}
+
+function stopGPS() {
+  gpsActive = false;
+  document.getElementById('gps-btn').classList.remove('active');
+  document.getElementById('gps-label').textContent = 'LOCATE';
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if (locationMarker) { map.removeLayer(locationMarker); locationMarker = null; }
+  if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
+  showGpsStatus('LOCATION OFF', 2000);
+}
+
+let firstFix = true;
+
+function onGPSSuccess(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+  const acc = pos.coords.accuracy;
+  const latlng = [lat, lng];
+
+  // Update or create accuracy circle
+  if (accuracyCircle) {
+    accuracyCircle.setLatLng(latlng).setRadius(acc);
+  } else {
+    accuracyCircle = L.circle(latlng, {
+      radius: acc,
+      color: '#ff3c1f',
+      fillColor: '#ff3c1f',
+      fillOpacity: 0.06,
+      weight: 1,
+      dashArray: '4 4',
+      className: 'accuracy-circle',
+    }).addTo(map);
+  }
+
+  // Update or create marker
+  if (locationMarker) {
+    locationMarker.setLatLng(latlng);
+  } else {
+    locationMarker = L.marker(latlng, { icon: myIcon, zIndexOffset: 1000 }).addTo(map);
+    locationMarker.bindPopup(
+      `<div style="font-family:monospace;font-size:11px;color:#111;min-width:180px;">
+        <b style="color:#ff3c1f">📍 AAPKI LOCATION</b><br>
+        LAT: ${lat.toFixed(7)}<br>
+        LON: ${lng.toFixed(7)}<br>
+        ACC: ±${Math.round(acc)}m
+      </div>`,
+      { closeButton: false }
+    );
+  }
+
+  // Fly to location on first fix
+  if (firstFix) {
+    firstFix = false;
+    map.flyTo(latlng, Math.max(map.getZoom(), 17), { duration: 1.2 });
+    showGpsStatus(`✓ LOCATION MILI! ±${Math.round(acc)}m`, 3000);
+  } else {
+    showGpsStatus(`↻ UPDATE: ±${Math.round(acc)}m`, 1500);
+  }
+
+  // Update status bar coords
+  document.getElementById('coord-display').textContent =
+    `YOU: ${lat.toFixed(6)}  ${lng.toFixed(6)}`;
+}
+
+function onGPSError(err) {
+  let msg = '⚠ LOCATION ERROR';
+  if (err.code === 1) msg = '⚠ PERMISSION DENIED — BROWSER ME GPS ALLOW KARO';
+  if (err.code === 2) msg = '⚠ SIGNAL NAHI MILA — BAHAR JAO';
+  if (err.code === 3) msg = '⟳ TIMEOUT — RETRY...';
+  showGpsStatus(msg, 5000);
+  // Don't stop GPS on timeout — keep trying
+  if (err.code !== 3) stopGPS();
+}
+
+// ── TOUCH: update coord on tap ──
+map.on('click', (e) => {
+  document.getElementById('coord-display').textContent =
+    `TAP: ${e.latlng.lat.toFixed(6)}  ${e.latlng.lng.toFixed(6)}`;
+});
+
+// Initial fit to map bounds
+map.fitBounds(bounds, { padding: [10, 10] });
+document.getElementById('zoom-display').textContent = 'ZOOM: ' + map.getZoom();
+</script>
+</body>
+</html>
